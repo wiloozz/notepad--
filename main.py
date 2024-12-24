@@ -40,9 +40,10 @@ def openfile():
         
 def savefile():
     file = filedialog.asksaveasfile(defaultextension=".txt",filetypes=[("Text files","*.txt"),("Python files","*.py"),("All files","*.*")])
-    filetext = str(text.get("1.0",END))
-    file.write(filetext)
-    file.close()
+    if file:
+        filetext = str(text.get("1.0",END))
+        file.write(filetext)
+        file.close()
 
 def save():
     if filepath == "":
