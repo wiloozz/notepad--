@@ -32,11 +32,12 @@ def update(event):
 def openfile():
     global filepath
     filepath = filedialog.askopenfilename(title="Open a text file",filetypes=[("Text files","*.txt"),("Python files","*.py"),("All files","*.*")])
-    file = open(filepath,"r")
-    text.insert("1.0",file.read())
-    print(filepath)
-    file.close()
-
+    if filepath != "":
+        file = open(filepath,"r")
+        text.insert("1.0",file.read())
+        print(filepath)
+        file.close()
+        
 def savefile():
     file = filedialog.asksaveasfile(defaultextension=".txt",filetypes=[("Text files","*.txt"),("Python files","*.py"),("All files","*.*")])
     filetext = str(text.get("1.0",END))
