@@ -1,5 +1,5 @@
 # // imports
-from tkinter import Label,Entry,Button,Text,Tk,END,SEL_FIRST,SEL_LAST,Menu,filedialog,messagebox,colorchooser
+from tkinter import Label,Entry,Button,Text,Tk,END,SEL_FIRST,SEL_LAST,WORD,Menu,filedialog,messagebox,colorchooser
 from keyboard import is_pressed
 from tkinter.font import Font
 from os import makedirs,path
@@ -7,7 +7,7 @@ from gc import enable
 # // variables
 autosave = False
 font_size = 10
-VERSION = 1.7
+VERSION = "1.8"
 filepath = ""
 textmodes = {}
 # // functions
@@ -48,7 +48,7 @@ def openedwindow():
 
     op_window = Tk()
 
-    with open("C:/Np--/opened_files.txt","r+") as file:
+    with open("C:/Np--/opened_files.txt","r") as file:
             dic = dict()
             duplicates = set()
             content : list = file.readlines()
@@ -58,6 +58,7 @@ def openedwindow():
                     duplicates.add(path)
                 else:
                     dic[path] = None
+                    content.append(path)
 
             with open("C:/Np--/opened_files.txt","w"):pass
 
@@ -71,7 +72,7 @@ def openedwindow():
     def loadFile(fp):
 
         """
-        Loads a new file content from the open window
+        Loads a new file content from the opened window
 
         - Asks if user wants to save or not
         - Clears existing text
@@ -92,10 +93,10 @@ def openedwindow():
                 with open(fp,"r") as file:
                     text.insert("1.0",file.read())
             except:
-                with open("C:/Np--/opened_files.txt","r+") as file:
+                with open("C:/Np--/opened_files.txt","r") as file:
                     textP = file.read().replace(fp,"")
 
-                with open("C:/Np--/opened_files.txt","w") as file:
+                with open("C:/Np--/opened_files.txt","a") as file:
                     file.write(textP)
 
                 del textP
@@ -129,14 +130,22 @@ def openedwindow():
     del op_window
 
 def save():
+    """
+    Saves a file
+    
+    - If already in a file -> saves to this file
+    - Else uses savefile() to create a new file
+    """
     if filepath == "":
         savefile()
     else:
-        with open(filepath, "r+") as file: # // remplcer r+ par w
+        with open(filepath, "w") as file:
             file.write(text.get(1.0,END))
 
         with open("C:/Np--/info.txt","w") as info:
             info.write(filepath)
+            
+    window.title(f"Notepad-- V{VERSION} -- {filepath}")
 
 def update(event=0): # // the event parameter is necessary
     """
@@ -181,20 +190,19 @@ def openfile():
 def savefile():
 
     """
-    Saves currently loaded file
+    Uses filedialog to create a new file / overwrite a file
     """
 
     global filepath
-    file = filedialog.asksaveasfile(defaultextension=".txt",filetypes=[("Text files","*.txt"),("Python files","*.py"),("All files","*.*")])
+    
+    file = filedialog.asksaveasfile(defaultextension=".txt",filetypes=[("Text files","*.txt"),("Python files","*.py"),("Javascript files","*.js"),("All files","*.*")])
     filepath = str(file).split("'")[1].replace("'","")
+    
     if file:
-        filetext = str(text.get("1.0",END))
-        file.write(filetext)
+        file.write(text.get("1.0",END))
         file.close()
         with open("C:/Np--/info.txt","w") as info:
             info.write(filepath)
-
-        del filetext
 
 def font_size_plus():
 
@@ -279,7 +287,8 @@ def del_window():
     window.destroy()
 
 def delete_all():
-    text.delete("1.0",END)
+    if messagebox.askquestion("Delete all",message="Are you sure you want to delete all of the text ?") == "yes":
+        text.delete("1.0",END)
 
 def replace_window():
 
@@ -611,7 +620,7 @@ textmenu.add_command(label="Color",command=lambda : changetext("C_CUSTOM"))
 textmenu.add_separator()
 textmenu.add_command(label="Clear",command=lambda : changetext("CLEAR"))
 
-text = Text(window,width=650,font=("Arial",10))
+text = Text(window,width=650,font=("Arial",10),wrap=WORD)
 text.focus()
 text.pack(fill="both",expand=True)
 
