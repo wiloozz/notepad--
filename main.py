@@ -1,35 +1,46 @@
 # // imports
 from tkinter import Label,Entry,Button,Text,Tk,END,SEL_FIRST,SEL_LAST,WORD,Menu,filedialog,messagebox,colorchooser
-from keyboard import is_pressed
 from tkinter.font import Font
+from keyboard import is_pressed
 from os import makedirs,path
-from gc import enable
+import shutil # // used for uninstalling
+
 # // variables
-autosave = False
-font_size = 10
-VERSION = "1.8"
-filepath = ""
-textmodes = {}
+autosave : bool = False
+font_size : int = 10
+VERSION : str = "1.9"
+filepath : str = ""
+textmodes : dict[str:str] = {}
 # // functions
 
-enable() # // enables garbage colector
+def checkPath(path : str) -> bool:
+    """
+    Checks if given file exists
+    """
+    try:
+        with open(path,"r"):
+            return True
+    except:
+        return False
 
-def init():
+def init() -> None:
 
     """
     Creates all the files needed for the app to run (opened files and last filepath)
     """
 
     global filepath
+    
     if not path.exists("C:/Np--"):
         makedirs("C:/Np--") # // on crée le dossier s'il n'existe pas
+    
+    if not checkPath("C:/Np--/info.txt"):
+       open("C:/Np--/info.txt","w").close()
+       
     with open("C:/Np--/info.txt","r") as f:
         filepath = f.read()
-
-    try:
-        opened_files = open("C:/Np--/opened_files.txt","r")
-        opened_files.close()
-    except:
+        
+    if not checkPath("C:/Np--/opened_files.txt"):
         opened_files = open("C:/Np--/opened_files.txt","w")
         opened_files.close()
 
@@ -37,39 +48,62 @@ def init():
         with open(filepath,"r") as file:
             text.insert("1.0",file.read())
             window.title(f"Notepad-- V{VERSION} -- {filepath}")
-    except:
+    except FileNotFoundError:
         pass
 
-def openedwindow():
+
+def uninstall() -> None:
+    """
+    uninstalls the app's files
+    """
+    
+    if messagebox.askquestion("Uninstall",message="Do you want to uninstall the app's files ?") == "yes":
+        try:
+            if path.exists("C:/Np--"):
+                shutil.rmtree("C:/Np--")
+                
+            messagebox.showinfo(title="Success",message=f"The app's files have been uninstalled")
+        except:
+            messagebox.showinfo(title="Error",message=f"The app's files could not be uninstalled -- To delete manualy, delete the 'C:/Np--' folder")
+
+
+def openedwindow() -> None:
 
     """
     Opens the window to see recently opened files
     """
 
-    op_window = Tk()
+    op_window : Tk = Tk()
+    duplicates : set[str] = set()# // there is always an unwanted "\n"
+    content : list[str] = []
 
-    with open("C:/Np--/opened_files.txt","r") as file:
-            dic = dict()
-            duplicates = set()
-            content : list = file.readlines()
+    try:
+        with open("C:/Np--/opened_files.txt","r") as file:
+            content : list[str] = file.readlines()
+    except FileNotFoundError:
+        errorLabel = Label(op_window,text="No files found")
+        errorLabel.pack()
+        op_window.mainloop()
 
-            for path in content:
-                if path in dic:
-                    duplicates.add(path)
+        return 0
+
+    with open("C:/Np--/opened_files.txt","w"):pass
+
+    with open("C:/Np--/opened_files.txt","a") as file:
+        for path in content:
+            # // avoid having the same path multiple times
+            if path.replace("\n","") in duplicates or path == "\n":
+                pass
+            else:
+                if checkPath(path.replace("\n","")): # // checks if the path exists
+                    duplicates.add(path.replace("\n",""))
+                    file.write(path)
                 else:
-                    dic[path] = None
-                    content.append(path)
+                    continue
+    
+    del duplicates,content
 
-            with open("C:/Np--/opened_files.txt","w"):pass
-
-            with open("C:/Np--/opened_files.txt","a") as file:
-                for j in content:
-                    if not j in duplicates:
-                        file.write(j)
-
-            del dic,duplicates,content
-
-    def loadFile(fp):
+    def loadFile(fp : str) -> None:
 
         """
         Loads a new file content from the opened window
@@ -81,11 +115,11 @@ def openedwindow():
 
         global text
         global filepath
-        filepath = fp
 
         with open("C:/Np--/info.txt","w") as info:
             info.write(fp)
 
+        # // if we want to save
         if messagebox.askquestion("Save",message="Do you want to save this file ?") == "yes":
             save()
             text.delete("1.0",END)
@@ -101,6 +135,7 @@ def openedwindow():
 
                 del textP
 
+        # // if we do not want to save
         else:
             text.delete("1.0",END)
             try:
@@ -113,13 +148,25 @@ def openedwindow():
                     file.write(textP)
                     
                 del textP
-
+        
+        filepath = fp
+        
         window.title(f"Notepad-- V{VERSION} -- {filepath}")
+        
+        # // We update the file that loads notepad-- with a file (try to understand that)
+        with open("C:/Np--/info.txt","w") as info:
+            info.write(filepath)
+        
+        op_window.destroy()
         
 
     with open("C:/Np--/opened_files.txt","r") as file:
-        for f in file.readlines():
-            if f != "\n" :#// sinon ca fonctionne pas :(
+        
+        for f in file.read().splitlines():
+            if checkPath(f):
+                FPbutton = Button(op_window,text=f,command=lambda k=f.replace("\n","") :loadFile(k))
+                FPbutton.pack()
+            else:
                 FPbutton = Button(op_window,text=f,command=lambda k=f.replace("\n","") :loadFile(k))
                 FPbutton.pack()
 
@@ -129,7 +176,50 @@ def openedwindow():
 
     del op_window
 
-def save():
+
+def closeTab() -> None:
+    """
+    Closes the current tab
+    """
+    
+    global filepath
+    
+    if not checkPath("C:/Np--/opened_files.txt"):
+        open("C:/Np--/opened_files.txt","w").close()
+        return None
+    
+    with open("C:/Np--/opened_files.txt","r") as file:
+        content = file.read()
+        
+    # // On retire l'onglet actuel
+    content = content.replace(filepath,"")
+    
+    with open("C:/Np--/opened_files.txt","w+") as file:
+        file.write(content)
+        
+    with open("C:/Np--/opened_files.txt","r") as file:
+        newTab = file.readlines()
+    
+    for path in newTab:
+        if path != "\n":
+            filepath = path.replace("\n","")
+            break
+    else:
+        filepath = ""
+    
+    text.delete("1.0",END)
+    
+    with open(filepath,"r") as newFile:
+        text.insert(1.0,newFile.read())
+        
+    window.title(f"Notepad-- V{VERSION} -- {filepath}")
+    
+    # // We update the file that loads notepad-- with a file (try to understand that)
+    with open("C:/Np--/info.txt","w") as info:
+        info.write(filepath)
+
+
+def save() -> None:
     """
     Saves a file
     
@@ -139,7 +229,7 @@ def save():
     if filepath == "":
         savefile()
     else:
-        with open(filepath, "w") as file:
+        with open(filepath, "w", encoding="utf-8") as file:
             file.write(text.get(1.0,END))
 
         with open("C:/Np--/info.txt","w") as info:
@@ -147,14 +237,14 @@ def save():
             
     window.title(f"Notepad-- V{VERSION} -- {filepath}")
 
-def update(event=0): # // the event parameter is necessary
+def update(event : int = 0) -> None: # // the event parameter is necessary
     """
     Code that is run every time an event is detected
     """
 
     char_label.config(text=f"characters: {len(text.get(1.0,END))-1}")
 
-    if not filepath == "" and autosave:
+    if filepath != "" and autosave:
         save()
 
     if is_pressed("ctrl+s"):
@@ -162,17 +252,22 @@ def update(event=0): # // the event parameter is necessary
     elif is_pressed("ctrl+f"):
         find_window()
 
-def openfile():
+def openfile() -> None:
 
     """
     Opens file with file dialog
     """
 
     global filepath
+    
     filepath = filedialog.askopenfilename(title="Open a text file",filetypes=[("Text files","*.txt"),("Python files","*.py"),("All files","*.*")])
+    
     if filepath != "":
 
         text.delete("1.0",END)
+        
+        if not checkPath(filepath):
+            messagebox.showinfo(title="File error",message=f"This file does not exist")
 
         with open(filepath,"r") as file:
             text.insert("1.0",file.read())
@@ -180,14 +275,18 @@ def openfile():
         with open("C:/Np--/info.txt","w+") as info:
             info.write(filepath)
 
+        # // if "C:/Np--/opened_files.txt" does not exist, we create it
+        if not checkPath("C:/Np--/opened_files.txt"):
+            open("C:/Np--/opened_files.txt","w").close()
+
         with open("C:/Np--/opened_files.txt","r+") as opened:
             files = opened.read()
             if not filepath in files:
-                opened.write(f"{files}\n{filepath}")
+                opened.write(f"\n{files}\n{filepath}")
     window.title(f"Notepad-- V{VERSION} -- {filepath}")
     update()
 
-def savefile():
+def savefile() -> None:
 
     """
     Uses filedialog to create a new file / overwrite a file
@@ -199,12 +298,12 @@ def savefile():
     filepath = str(file).split("'")[1].replace("'","")
     
     if file:
-        file.write(text.get("1.0",END))
-        file.close()
-        with open("C:/Np--/info.txt","w") as info:
-            info.write(filepath)
+        with open(file,"w",encoding="utf-8") as f:  # type: ignore
+            f.write(text.get("1.0",END)) # type: ignore
+            with open("C:/Np--/info.txt","w") as info:
+                info.write(filepath)
 
-def font_size_plus():
+def font_size_plus() -> None:
 
     """
     Increases font size
@@ -212,12 +311,13 @@ def font_size_plus():
 
     global font_size
     global testlabel
+    
     textwid = text.winfo_width()
     font_size += 1
     text.config(font=("Arial",font_size),width=textwid+1)
     testlabel.config(text="Font size: "+str(font_size))
 
-def font_size_minus():
+def font_size_minus() -> None:
 
     """
     Decreases font size
@@ -225,6 +325,7 @@ def font_size_minus():
 
     global font_size
     global testlabel
+    
     if font_size > 1:
         textwid = text.winfo_width()
         font_size -= 1
@@ -272,19 +373,18 @@ def settingwindow():
     minus_button.grid(column=2,row=1)
 
     as_button = Button(new_window,command=ChangeASState) # // autosave button
+    
     if autosave:
         as_button.config(text="Disable auto-save")
     else:
         as_button.config(text="Enable auto-save")
+        
     as_button.grid(column=0,row=2,columnspan=3,padx=(45,0))
 
     ok_button = Button(new_window,text="Ok",command=close)
     ok_button.grid(column=4,row=4,pady=(20,0),padx=(5,0))
 
     new_window.mainloop()
-
-def del_window():
-    window.destroy()
 
 def delete_all():
     if messagebox.askquestion("Delete all",message="Are you sure you want to delete all of the text ?") == "yes":
@@ -357,9 +457,6 @@ def delete_window():
         text.delete(1.0,END)
         text.insert(1.0,text_content)
 
-    def close():
-        delwindow.destroy()
-
     delwindow = Tk()
     delwindow.title("Replace")
     delwindow.geometry("220x100")
@@ -376,7 +473,7 @@ def delete_window():
     ok_button = Button(delwindow,text="Apply",command=delete)
     ok_button.grid(column=2,row=4)
 
-    close_button = Button(delwindow,text="Close",command=close)
+    close_button = Button(delwindow,text="Close",command=lambda : delwindow.destroy())
     close_button.grid(column=3,row=4,padx=(2,0))
 
     delwindow.mainloop()
@@ -442,7 +539,7 @@ def debug_window():
 
     debugwindow.mainloop()
 
-def changetext(mode):
+def changetext(mode : str):
 
     """
     Changes the style of the selected text :)
@@ -452,35 +549,37 @@ def changetext(mode):
     text.tag_configure("BOLD", font=bold_font)
 
     mode_list = ["HIGH","BOLD","C_CUSTOM"]
+    
+    match mode: # type: ignore (pylance crap)
 
-    if mode == "HIGH":
-        try:
-            color = colorchooser.askcolor()[1]
-            text.tag_configure("HIGH",background=color)
-            text.tag_add("HIGH", "sel.first", "sel.last")
-            textmodes[f"{SEL_FIRST}/{SEL_LAST}"] = "HIGH"
-        except:
-            pass
-    elif mode == "BOLD":
-        try:
-            text.tag_add("BOLD", "sel.first", "sel.last")
-            textmodes[f"{SEL_FIRST}/{SEL_LAST}"] = "BOLD"
-        except:
-            pass
-    elif mode == "C_CUSTOM":
-        try:
-            color = colorchooser.askcolor()[1]
-            text.tag_configure("C_CUSTOM",foreground=color)
-            text.tag_add("C_CUSTOM", "sel.first", "sel.last")
-            textmodes[f"{SEL_FIRST}/{SEL_LAST}"] = "C_CUSTOM"
-        except:
-            pass
-    elif mode == "CLEAR":
-        for i in mode_list:
-            text.tag_remove(i,1.0,END)
+        case "HIGH":
+            try:
+                color = colorchooser.askcolor()[1]
+                text.tag_configure("HIGH",background=color) # type: ignore
+                text.tag_add("HIGH", "sel.first", "sel.last")
+                textmodes[f"{SEL_FIRST}/{SEL_LAST}"] = "HIGH"
+            except:
+                pass
+        case "BOLD":
+            try:
+                text.tag_add("BOLD", "sel.first", "sel.last")
+                textmodes[f"{SEL_FIRST}/{SEL_LAST}"] = "BOLD"
+            except:
+                pass
+        case "C_CUSTOM":
+            try:
+                color = colorchooser.askcolor()[1]
+                text.tag_configure("C_CUSTOM",foreground=color)  # type: ignore
+                text.tag_add("C_CUSTOM", "sel.first", "sel.last")
+                textmodes[f"{SEL_FIRST}/{SEL_LAST}"] = "C_CUSTOM"
+            except:
+                pass
+        case "CLEAR":
+            for i in mode_list:
+                text.tag_remove(i,1.0,END)
 
 
-def find_window():
+def find_window() -> None:
 
     """
     Opens the find window
@@ -500,7 +599,7 @@ def find_window():
             text.tag_add("F_HIGH",found,f"{found[:indx]}.{int(found[indx+1:])+len(word)}")
             text.see(found)
 
-    def close():
+    def close() -> None:
         findwindow.destroy()
 
     findwindow = Tk()
@@ -525,7 +624,7 @@ def find_window():
 
     findwindow.mainloop()
 
-def see_window():
+def see_window() -> None:
 
     """
     Opens the window to choose which line to look to
@@ -568,7 +667,7 @@ def see_window():
     seewindow.mainloop()
 
 
-def newFileWindow():
+def newFileWindow() -> None:
     """
     Creates a new file
     """
@@ -593,9 +692,11 @@ filemenu.add_command(label="Open",command=openfile)
 filemenu.add_command(label="New",command=newFileWindow)
 filemenu.add_command(label="Save as",command=savefile)
 filemenu.add_command(label="Save (ctrl+s)",command=save)
-filemenu.add_command(label="Opened",command=openedwindow)
 filemenu.add_separator()
-filemenu.add_command(label="Close",command=del_window)
+filemenu.add_command(label="Tabs",command=openedwindow)
+filemenu.add_command(label="Remove tab",command=closeTab)
+filemenu.add_separator()
+filemenu.add_command(label="Close",command=lambda: window.destroy())
 
 editmenu = Menu(menubar,tearoff=0)
 menubar.add_cascade(label="Edit",menu=editmenu)
@@ -611,6 +712,8 @@ settings_menu = Menu(menubar,tearoff=0)
 menubar.add_cascade(label="Settings",menu=settings_menu)
 settings_menu.add_command(label="Settings",command=settingwindow)
 settings_menu.add_command(label="Debug",command=debug_window)
+settings_menu.add_separator()
+settings_menu.add_command(label="Uninstall",command=uninstall)
 
 textmenu = Menu(menubar,tearoff=0)
 menubar.add_cascade(label="Text",menu=textmenu)
@@ -620,7 +723,7 @@ textmenu.add_command(label="Color",command=lambda : changetext("C_CUSTOM"))
 textmenu.add_separator()
 textmenu.add_command(label="Clear",command=lambda : changetext("CLEAR"))
 
-text = Text(window,width=650,font=("Arial",10),wrap=WORD)
+text = Text(window,width=650,font=("Arial",10),wrap=WORD,undo=True)
 text.focus()
 text.pack(fill="both",expand=True)
 
@@ -628,7 +731,7 @@ char_label = Label(text="characters: 0")
 char_label.config(width=100)
 char_label.pack(padx=(0,850),fill="both")
 
-window.bind("<Key>",update)
+window.bind("<Key>",update) # type: ignore (still pylance crap)
 window.geometry("950x650")
 window.title(f"Notepad-- V{VERSION}")
 
